@@ -2,7 +2,7 @@
 
 This document presents project ideas, roadmaps, and enhancements. It’s designed to be engaging for a young beginner developer, while teaching Airtable (Free plan features), AWS Lambda, AWS S3, and even the Spotify API.
 
-## 🚀 Project Ideas Overview
+## Project Ideas Overview
 
 ### 1. Game Collection Tracker
 - **Airtable Web API**: Store video games (title, platform, rating, completion status).
@@ -118,7 +118,102 @@ This document presents project ideas, roadmaps, and enhancements. It’s designe
 
 ---
 
-## 🎯 Final Thoughts
+## 💪 Project 3 Roadmap: Personal Fitness Log
+
+### Phase 1: Airtable Setup
+1. Create a base with fields: `Date`, `Exercise`, `Sets`, `Reps`, `Weight`, `Duration (min)`, `Notes`.
+2. Build a quick-log form for workouts.
+3. Add a `Workouts This Week` rollup/formula for weekly totals.
+
+### Phase 2: Airtable Interfaces
+4. Weekly progress dashboard: workouts per week, total duration, volume (sets × reps × weight).
+5. Charts by exercise and by week.
+
+### Phase 3: Airtable Automations
+6. Automation: send a motivational message when a milestone is hit (e.g. 10th workout, 5 workouts in a week).
+7. Automation: auto-fill `Date` with today if left blank.
+
+### Phase 4: Airtable Web API
+8. Script to fetch all workouts for a given week via API.
+9. Script to add workouts programmatically.
+
+### Phase 5: AWS Lambda + S3
+10. Create S3 bucket for weekly PDF summaries.
+11. Lambda function (scheduled weekly): fetch the week's workouts, generate a PDF summary, upload to S3.
+12. Update Airtable with the S3 link (new `Weekly Summaries` table).
+
+### Phase 6: Polish & Share
+13. Add filters (exercise, date range) to the interface.
+14. Share the dashboard with a friend or coach for accountability.
+
+**Learning Outcomes**: Data aggregation, scheduled Lambdas (EventBridge), PDF generation, S3 storage, health-habit motivation.
+
+---
+
+## 🎬 Project 4 Roadmap: Mini Movie Review Site
+
+### Phase 1: Airtable Setup
+1. Create two tables: `Movies` (`Title`, `Year`, `Genre`, `Poster URL`, `Average Rating`) and `Reviews` (`Movie` link, `Reviewer`, `Rating`, `Review`).
+2. Build a form for friends to submit reviews.
+
+### Phase 2: Airtable Interfaces
+3. “Top 10 Movies” leaderboard sorted by average rating.
+4. Movie detail page showing poster and all reviews.
+
+### Phase 3: Airtable Automations
+5. Auto-calculate average rating per movie (rollup/formula, plus automation if needed).
+6. Notify when a new review is submitted.
+
+### Phase 4: Movie Metadata API
+7. Register for a free movie API (e.g. [TMDB](https://www.themoviedb.org/settings/api)) and get an API key.
+8. Script: search a movie by title, return year, genre, and poster URL.
+9. Script to add movies to Airtable programmatically.
+
+### Phase 5: AWS Lambda + S3
+10. Create S3 bucket for posters.
+11. Lambda function: fetch poster from the API, upload to S3, return URL.
+12. Update Airtable with the S3 link.
+
+### Phase 6: Polish & Share
+13. Upgrade interface with gallery view and genre filters.
+14. Share with friends for reviews.
+
+**Learning Outcomes**: Linked records and rollups, third-party API integration, aggregation logic, S3 asset hosting, social collaboration.
+
+---
+
+## 🎨 Project 5 Roadmap: Digital Art Portfolio
+
+### Phase 1: Airtable Setup
+1. Create a base with fields: `Title`, `Description`, `Tags`, `Medium`, `Created Date`, `Image URL`, `Status`.
+2. Build a form for adding artwork details.
+
+### Phase 2: Airtable Interfaces
+3. Gallery view of the portfolio with tag filters.
+4. Artwork detail page with description and image.
+
+### Phase 3: Airtable Automations
+5. Notify when new artwork is added.
+6. Auto-set `Status` to “Draft” for new entries.
+
+### Phase 4: Airtable Web API
+7. Script to fetch all artworks via API.
+8. Script to add artwork records programmatically.
+
+### Phase 5: AWS Lambda + S3
+9. Create S3 bucket for artwork images.
+10. Lambda function: generate a presigned upload URL so images upload directly to S3.
+11. Lambda function (S3 trigger): on upload, create a thumbnail and update Airtable with the image and thumbnail links.
+
+### Phase 6: Polish & Share
+12. Add a public-facing portfolio page (Airtable shared interface or a small Vite site reading from the API).
+13. Share the portfolio link.
+
+**Learning Outcomes**: File upload flows, presigned URLs, S3 event triggers, image processing, building something that feels like a real product.
+
+---
+
+## Final Thoughts
 
 These projects are designed to be:
 - **Personalized**: Games, music, movies, fitness, art.  
