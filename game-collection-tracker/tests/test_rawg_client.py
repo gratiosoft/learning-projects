@@ -1,0 +1,66 @@
+import pytest
+import responses
+
+from game_tracker.rawg_client import GameNotFoundError, RawgClient, UpstreamError
+
+SEARCH = "https://api.rawg.io/api/games"
+
+
+@responses.activate
+def test_picks_exact_title_match_over_first_result():
+    responses.get(
+        SEARCH,
+        json={
+            "results": [
+                {"name": "Zelda Clone", "background_image": "http://img/a.jpg"},
+                {"name": "The Legend of Zelda", "background_image": "http://img/b.jpg"},
+            ]
+        },
+    )
+    cover = RawgClient("k").find_cover("the legend of zelda")
+    assert cover.image_url == "http://img/b.jpg"
+
+
+@responses.activate
+def test_falls_back_to_first_result_and_skips_imageless():
+    responses.get(
+        SEARCH,
+        json={
+            "results": [
+                {"name": "X", "background_image": None},
+                {"name": "Y", "background_image": "u"},
+            ]
+        },
+    )
+    assert RawgClient("k").find_cover("something").name == "Y"
+
+
+@responses.activate
+def test_not_found():
+    responses.get(SEARCH, json={"results": []})
+    with pytest.raises(GameNotFoundError):
+        RawgClient("k").find_cover("zzz")
+
+
+@responses.activate
+def test_5xx_is_upstream_error():
+    responses.get(SEARCH, status=503)
+    with pytest.raises(UpstreamError):
+        RawgClient("k").find_cover("x")
+
+
+@responses.activate
+def test_download_returns_bytes_and_content_type():
+    responses.get("http://img/a.png", body=b"png", content_type="image/png")
+    data, ct = RawgClient("k").download("http://img/a.png")
+    assert (data, ct) == (b"png", "image/png")
+
+
+@responses.activate
+def test_network_error_does_not_leak_key():
+    import requests
+
+    responses.get(SEARCH, body=requests.ConnectionError("https://x?key=SECRET"))
+    with pytest.raises(UpstreamError) as e:
+        RawgClient("SECRET").find_cover("x")
+    assert "SECRET" not in str(e.value)
