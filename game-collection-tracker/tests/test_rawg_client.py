@@ -51,8 +51,8 @@ def test_5xx_is_upstream_error():
 
 @responses.activate
 def test_download_returns_bytes_and_content_type():
-    responses.get("http://img/a.png", body=b"png", content_type="image/png")
-    data, ct = RawgClient("k").download("http://img/a.png")
+    responses.get("https://media.rawg.io/a.png", body=b"png", content_type="image/png")
+    data, ct = RawgClient("k").download("https://media.rawg.io/a.png")
     assert (data, ct) == (b"png", "image/png")
 
 
@@ -64,3 +64,27 @@ def test_network_error_does_not_leak_key():
     with pytest.raises(UpstreamError) as e:
         RawgClient("SECRET").find_cover("x")
     assert "SECRET" not in str(e.value)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://media.rawg.io/a.jpg",  # not https
+        "https://evil.example.com/a.jpg",
+        "https://media.rawg.io.evil.com/a.jpg",
+        "https://169.254.169.254/latest/meta-data",
+        "file:///etc/passwd",
+    ],
+)
+@responses.activate
+def test_download_refuses_other_hosts(url):
+    with pytest.raises(UpstreamError):
+        RawgClient("k").download(url)
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_download_does_not_follow_redirects():
+    responses.get("https://media.rawg.io/a.jpg", status=302, headers={"Location": "http://evil/x"})
+    with pytest.raises(UpstreamError):
+        RawgClient("k").download("https://media.rawg.io/a.jpg")

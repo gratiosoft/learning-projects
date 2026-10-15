@@ -99,3 +99,20 @@ def test_title_only_skips_airtable(deps):
 def test_bad_request(deps):
     d, _ = deps
     assert lambda_handler({}, deps=d)["statusCode"] == 400
+
+
+@responses.activate
+def test_force_refetches_even_when_cover_exists(deps):
+    d, s3 = deps
+    _mock_happy_path()
+    first = lambda_handler({"record_id": "rec1"}, deps=d)
+    responses.replace(
+        responses.GET,
+        f"{AT}/rec1",
+        json={"id": "rec1", "fields": {"Title": "Hades II", "Cover Art URL": first["url"]}},
+    )
+    responses.replace(
+        responses.GET, RAWG, json={"results": [{"name": "Hades II", "background_image": IMG}]}
+    )
+    out = lambda_handler({"record_id": "rec1", "force": True}, deps=d)
+    assert out["cached"] is False

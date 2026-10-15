@@ -1,6 +1,7 @@
 """Lambda entry point: fetch cover art for a game, store it in S3, link it in Airtable.
 
-Event: {"record_id": "rec..."} or {"title": "..."}.
+Event: {"record_id": "rec..."} or {"title": "..."}, plus optional "force": true to
+re-fetch even when the record already has a cover (e.g. after fixing a wrong Title).
 Response: {"statusCode": 200, "url": ..., "cached": bool} or
           {"statusCode": 404|400|502, "error": code, "message": ...}.
 Errors are returned (not raised) so the backfill CLI can tell "not found" from a crash.
@@ -64,9 +65,10 @@ def lambda_handler(event: dict, context=None, deps: Deps | None = None) -> dict:
             if not title:
                 return _error(400, "bad_request", f"record {record_id} has no Title")
             # Idempotency shortcut: already linked to our bucket and the object exists.
+            # It does not re-check the title; use force=true after changing a Title.
             current = fields.get(at.F_COVER_URL, "")
             key = d.uploader.key_from_url(current) if current else None
-            if key and d.uploader.exists(key):
+            if key and not event.get("force") and d.uploader.exists(key):
                 return {"statusCode": 200, "url": current, "cached": True}
 
         cover = d.rawg.find_cover(title)

@@ -7,10 +7,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import requests
 
 API_ROOT = "https://api.rawg.io/api"
+# RAWG serves images from this host only. We refuse anything else so a bad or
+# tampered API response cannot make the Lambda fetch arbitrary URLs (SSRF).
+IMAGE_HOSTS = frozenset({"media.rawg.io"})
 
 
 class GameNotFoundError(LookupError):
@@ -44,7 +48,7 @@ class RawgClient:
             raise UpstreamError(f"request failed: {type(exc).__name__}") from None
         if resp.status_code >= 500:
             raise UpstreamError(f"upstream returned {resp.status_code}")
-        if not resp.ok:
+        if resp.status_code >= 300:  # includes un-followed redirects
             raise UpstreamError(f"unexpected status {resp.status_code}")
         return resp
 
@@ -62,6 +66,10 @@ class RawgClient:
         return Cover(name=best["name"], image_url=best["background_image"])
 
     def download(self, image_url: str) -> tuple[bytes, str]:
-        resp = self._get(image_url)
+        parsed = urlparse(image_url)
+        if parsed.scheme != "https" or parsed.hostname not in IMAGE_HOSTS:
+            raise UpstreamError(f"refusing to fetch image from {parsed.hostname!r}")
+        # No redirects: a redirect could point outside the allowed host.
+        resp = self._get(image_url, allow_redirects=False)
         content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0]
         return resp.content, content_type

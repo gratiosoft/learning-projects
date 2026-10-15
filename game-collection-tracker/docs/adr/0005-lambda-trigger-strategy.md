@@ -12,3 +12,6 @@ Implement a **backfill CLI** (`backfill`) that lists games with an empty `Cover 
 - No public endpoint, so no auth scheme to design or get wrong, and nothing extra to pay for or secure.
 - Covers are not fetched automatically when a friend submits a game; the owner runs backfill. Fine for a personal collection.
 - Later option (not built): a Function URL with `AWS_IAM` auth or a secret header, called from an Airtable automation script. Airtable Free limits (100 automation runs per month) also argue for waiting.
+
+## Idempotency limits
+If a record already links to our bucket and the object exists, the handler returns the cached URL without re-checking the title. After correcting a Title, invoke with `{"record_id": "...", "force": true}` to re-fetch. The image host is restricted to RAWG's CDN (`media.rawg.io`, https, no redirects) before any download.
