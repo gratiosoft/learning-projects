@@ -10,7 +10,7 @@ Python 3.12 + uv, ruff, pytest, `responses` (HTTP mocks), `moto` (AWS mocks). Te
 - Test: `make test` (offline) · Lint: `make lint` · Everything: `make check`
 - Package Lambda: `make package` → `build/lambda.zip`
 - Deploy: `make plan`, then `make deploy`. **Never run `terraform apply` or create AWS resources without the owner's explicit OK.**
-- CLIs: `uv run list-games`, `uv run add-game`, `uv run backfill-covers`
+- CLIs: `uv run setup-base` (creates the Games table), `list-games`, `add-game`, `backfill-covers`
 
 ## Conventions
 - Commits: `type(game-collection-tracker): subject`.

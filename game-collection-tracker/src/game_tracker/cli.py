@@ -10,6 +10,7 @@ import boto3
 from dotenv import load_dotenv
 
 from . import airtable_client as at
+from . import schema
 from .config import Settings, get_secret
 
 
@@ -89,3 +90,15 @@ def backfill(
             failures += 1
             print(f"FAIL  {title}: {result.get('error', result)}", file=sys.stderr)
     return 1 if failures else 0
+
+
+def setup_base(argv: list[str] | None = None, ensure=schema.ensure_games_table) -> int:
+    """Create the Games table (with colored select options) in the configured base."""
+    argparse.ArgumentParser(description="Create the Games table").parse_args(argv)
+    load_dotenv()
+    settings = Settings.from_env()
+    table = ensure(get_secret("AIRTABLE_TOKEN"), settings.airtable_base_id)
+    print(f"table {table['name']} id={table['id']}")
+    for f in table["fields"]:
+        print(f"  {f['id']}  {f['name']} ({f['type']})")
+    return 0

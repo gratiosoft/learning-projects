@@ -10,7 +10,7 @@ Docs: [PRD](docs/prd.md) · [Architecture](docs/architecture.md) · [ADRs](docs/
 |------|-------|
 | Python client, CLI, Lambda handler, tests | done, tests pass offline |
 | Terraform (`infra/`) | written, `fmt` and `validate` pass, **not applied** |
-| Airtable base, form, automations, interface | **not created yet** (see [Airtable](#airtable)) |
+| Airtable base, form, automations, interface | **pending**: `uv run setup-base` creates the table; the rest is manual, see [manual-steps.md](docs/manual-steps.md) |
 
 ## Setup
 
@@ -22,6 +22,7 @@ cp .env.example .env       # fill in values; .env is gitignored
 ## Run
 
 ```bash
+uv run setup-base                      # once: creates the Games table (needs schema.bases:write)
 uv run list-games
 uv run add-game --title "Hades" --platform PC --status Backlog --rating 5
 uv run backfill-covers --dry-run     # then without --dry-run once deployed

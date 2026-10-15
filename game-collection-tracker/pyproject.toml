@@ -17,6 +17,7 @@ dependencies = [
 list-games = "game_tracker.cli:list_games"
 add-game = "game_tracker.cli:add_game"
 backfill-covers = "game_tracker.cli:backfill"
+setup-base = "game_tracker.cli:setup_base"
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
