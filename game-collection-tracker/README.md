@@ -55,6 +55,8 @@ Cost is near zero within the free tiers. `terraform destroy` removes everything 
 
 Base: **not created yet.** Once created, its base ID and table/field IDs are recorded here (IDs are not secrets; the token never goes in the repo).
 
+Cover art: S3 + CloudFront is the source of truth (`Cover Art URL`). The Lambda also writes `Cover Art Attachment` so gallery views show images; **Airtable downloads and keeps its own copy** of that file (counts toward the 1 GB Free attachment quota). See [ADR 0007](docs/adr/0007-attachment-display-copy.md).
+
 ## Layout
 
 ```

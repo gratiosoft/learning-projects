@@ -57,6 +57,7 @@ Items the Airtable MCP tools cannot do are listed in [manual-steps.md](manual-st
 | C1 | Lambda input `{record_id}` or `{title}`; looks up the game on RAWG, picks the best match. |
 | C2 | Uploads the image to S3 at `covers/<record_id>.jpg` with correct `Content-Type`. |
 | C3 | Writes the stable cover URL to the record's `Cover Art URL`; returns it. |
+| C3b | Also writes `Cover Art Attachment` (a display copy Airtable re-hosts) so gallery views show images; skipped if present unless `force`. |
 | C4 | Idempotent: re-running yields the same key/URL and no duplicate side effects. |
 | C5 | Clear errors: game not found (404-style), upstream failure (5xx-style). |
 | C6 | Backfill CLI invokes the Lambda for every game without cover art. |

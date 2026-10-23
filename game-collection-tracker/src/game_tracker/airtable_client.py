@@ -26,6 +26,7 @@ F_STATUS = "Completion Status"
 F_RATING = "Rating"
 F_COVER_URL = "Cover Art URL"
 F_REVIEW = "Review Status"
+F_ATTACHMENT = "Cover Art Attachment"
 
 
 class AirtableError(RuntimeError):

@@ -80,6 +80,7 @@ sequenceDiagram
     L->>R: GET image URL
     L->>S: PutObject covers/<record_id>.jpg (ContentType)
     L->>A: PATCH record: Cover Art URL = https://<cloudfront>/covers/<record_id>.jpg
+    L->>A: PATCH record: Cover Art Attachment = [{url}] (display copy, ADR 0007)
     L-->>C: {url}
 ```
 

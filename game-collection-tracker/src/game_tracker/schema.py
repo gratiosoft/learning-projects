@@ -67,6 +67,7 @@ def games_table(name: str = "Games") -> dict:
             },
             {"name": "Cover Art URL", "type": "url"},
             _select("Review Status", ["Unreviewed", "Reviewed"]),
+            # Display copy for gallery views (ADR 0007); Cover Art URL stays the source of truth.
             {"name": "Cover Art Attachment", "type": "multipleAttachments"},
         ],
     }

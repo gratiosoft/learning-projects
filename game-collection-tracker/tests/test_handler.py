@@ -76,7 +76,14 @@ def test_idempotent_rerun_skips_work(deps):
     responses.replace(
         responses.GET,
         f"{AT}/rec1",
-        json={"id": "rec1", "fields": {"Title": "Hades", "Cover Art URL": first["url"]}},
+        json={
+            "id": "rec1",
+            "fields": {
+                "Title": "Hades",
+                "Cover Art URL": first["url"],
+                "Cover Art Attachment": [{"url": first["url"]}],
+            },
+        },
     )
     n_calls = len(responses.calls)
     second = lambda_handler({"record_id": "rec1"}, deps=d)
@@ -116,3 +123,85 @@ def test_force_refetches_even_when_cover_exists(deps):
     )
     out = lambda_handler({"record_id": "rec1", "force": True}, deps=d)
     assert out["cached"] is False
+
+
+def _bodies(method):
+    import json
+
+    return [json.loads(c.request.body) for c in responses.calls if c.request.method == method]
+
+
+@responses.activate
+def test_attachment_written_after_url(deps):
+    d, _ = deps
+    _mock_happy_path()
+    lambda_handler({"record_id": "rec1"}, deps=d)
+    patches = _bodies("PATCH")
+    assert "Cover Art URL" in patches[0]["records"][0]["fields"]
+    assert patches[1]["records"][0]["fields"] == {
+        "Cover Art Attachment": [{"url": f"{CDN}/covers/rec1.jpg"}]
+    }
+
+
+@responses.activate
+def test_attachment_skipped_when_present(deps):
+    d, _ = deps
+    _mock_happy_path()
+    responses.replace(
+        responses.GET,
+        f"{AT}/rec1",
+        json={
+            "id": "rec1",
+            "fields": {"Title": "Hades", "Cover Art Attachment": [{"url": "https://x/y.jpg"}]},
+        },
+    )
+    lambda_handler({"record_id": "rec1"}, deps=d)
+    patches = _bodies("PATCH")
+    assert len(patches) == 1 and "Cover Art URL" in patches[0]["records"][0]["fields"]
+
+
+@responses.activate
+def test_attachment_rewritten_on_force(deps):
+    d, _ = deps
+    _mock_happy_path()
+    responses.replace(
+        responses.GET,
+        f"{AT}/rec1",
+        json={
+            "id": "rec1",
+            "fields": {"Title": "Hades", "Cover Art Attachment": [{"url": "https://x/y.jpg"}]},
+        },
+    )
+    lambda_handler({"record_id": "rec1", "force": True}, deps=d)
+    patches = _bodies("PATCH")
+    assert len(patches) == 2
+    assert patches[1]["records"][0]["fields"]["Cover Art Attachment"][0]["url"].startswith(
+        f"{CDN}/covers/rec1.jpg?v="
+    )
+
+
+@responses.activate
+def test_attachment_failure_is_not_fatal(deps):
+    d, _ = deps
+    responses.get(f"{AT}/rec1", json={"id": "rec1", "fields": {"Title": "Hades"}})
+    responses.get(RAWG, json={"results": [{"name": "Hades", "background_image": IMG}]})
+    responses.get(IMG, body=b"x", content_type="image/jpeg")
+    responses.patch(AT, json={"records": [{"id": "rec1"}]})
+    responses.patch(AT, status=422, body="bad attachment")
+    out = lambda_handler({"record_id": "rec1"}, deps=d)
+    assert out["statusCode"] == 200 and out["url"].endswith("covers/rec1.jpg")
+
+
+@responses.activate
+def test_cached_path_backfills_missing_attachment(deps):
+    d, _ = deps
+    _mock_happy_path()
+    first = lambda_handler({"record_id": "rec1"}, deps=d)
+    responses.replace(
+        responses.GET,
+        f"{AT}/rec1",
+        json={"id": "rec1", "fields": {"Title": "Hades", "Cover Art URL": first["url"]}},
+    )
+    out = lambda_handler({"record_id": "rec1"}, deps=d)
+    assert out["cached"] is True
+    assert len(_bodies("PATCH")) == 3  # url, attachment, then attachment-only

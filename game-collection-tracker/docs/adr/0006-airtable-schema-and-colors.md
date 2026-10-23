@@ -1,6 +1,6 @@
 # 0006. Airtable schema and select colors
 
-Status: accepted
+Status: accepted (attachment clause superseded by [0007](0007-attachment-display-copy.md))
 
 ## Context
 The Airtable API cannot recolor select options after creation, so colors must be right at creation time. Free plan: 1,000 records per base, 100 automation runs per month.

@@ -10,6 +10,7 @@ Errors are returned (not raised) so the backfill CLI can tell "not found" from a
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 
 from . import airtable_client as at
@@ -51,9 +52,30 @@ def _error(status: int, code: str, message: str) -> dict:
     return {"statusCode": status, "error": code, "message": message}
 
 
+def _attach(d: Deps, record_id: str, url: str, force: bool) -> bool:
+    """Write the display copy for Airtable galleries (they only render attachments).
+
+    Airtable downloads the file from our CloudFront URL and keeps its own copy; S3 stays
+    the source of truth. On force we add a throwaway query string so Airtable does not
+    reuse the attachment it already has for the same URL. A failure here is not fatal:
+    `Cover Art URL` is already saved.
+    """
+    shown = f"{url}?v={int(time.time())}" if force else url
+    try:
+        d.airtable.update_records(
+            [{"id": record_id, "fields": {at.F_ATTACHMENT: [{"url": shown}]}}]
+        )
+        return True
+    except AirtableError as exc:
+        log.warning("attachment not written for %s: %s", record_id, exc)
+        return False
+
+
 def lambda_handler(event: dict, context=None, deps: Deps | None = None) -> dict:
     d = deps or _build_deps()
     record_id = event.get("record_id")
+    had_attachment = False
+    force = bool(event.get("force"))
     title = event.get("title")
     if not record_id and not title:
         return _error(400, "bad_request", "provide record_id or title")
@@ -68,14 +90,19 @@ def lambda_handler(event: dict, context=None, deps: Deps | None = None) -> dict:
             # It does not re-check the title; use force=true after changing a Title.
             current = fields.get(at.F_COVER_URL, "")
             key = d.uploader.key_from_url(current) if current else None
-            if key and not event.get("force") and d.uploader.exists(key):
+            if key and not force and d.uploader.exists(key):
+                if not fields.get(at.F_ATTACHMENT):
+                    _attach(d, record_id, current, force=False)
                 return {"statusCode": 200, "url": current, "cached": True}
+            had_attachment = bool(fields.get(at.F_ATTACHMENT))
 
         cover = d.rawg.find_cover(title)
         data, content_type = d.rawg.download(cover.image_url)
         url = d.uploader.upload(record_id or slugify(title), data, content_type)
         if record_id:
             d.airtable.update_records([{"id": record_id, "fields": {at.F_COVER_URL: url}}])
+            if force or not had_attachment:
+                _attach(d, record_id, url, force)
     except GameNotFoundError as exc:
         log.info("game not found: %s", title)
         return _error(404, "game_not_found", str(exc))
