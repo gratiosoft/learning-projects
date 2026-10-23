@@ -30,13 +30,13 @@ I own many video games across platforms and lose track of what I own, what I hav
 
 | ID | Requirement |
 |----|-------------|
-| A1 | Base "Game Collection Tracker", table `Games` with `Title`, `Platform`, `Genre`, `Completion Status`, `Rating`, `Cover Art URL`, `Review Status`, `Cover Art Attachment`. |
+| A1 | Base "Game Collection Tracker", table `Games` with `Title`, `Platform`, `Genre`, `Completion status`, `Rating`, `Cover art URL`, `Review status`, `Cover art attachment`. |
 | A2 | Every select option has a distinct color. |
-| A3 | A form adds games (Title, Platform, Genre, Completion Status, Rating). |
+| A3 | A form adds games (Title, Platform, Genre, Completion status, Rating). |
 | A4 | Dashboard: total games, % completed, average rating. |
 | A5 | Gallery page with filters (platform, genre, status). |
 | A6 | Automation: notify when a game is added. |
-| A7 | Automation: new records get `Review Status` = "Unreviewed". |
+| A7 | Automation: new records get `Review status` = "Unreviewed". |
 | A8 | Friends can submit via a shared form. |
 
 Items the Airtable MCP tools cannot do are listed in [manual-steps.md](manual-steps.md).
@@ -56,8 +56,8 @@ Items the Airtable MCP tools cannot do are listed in [manual-steps.md](manual-st
 |----|-------------|
 | C1 | Lambda input `{record_id}` or `{title}`; looks up the game on RAWG, picks the best match. |
 | C2 | Uploads the image to S3 at `covers/<record_id>.jpg` with correct `Content-Type`. |
-| C3 | Writes the stable cover URL to the record's `Cover Art URL`; returns it. |
-| C3b | Also writes `Cover Art Attachment` (a display copy Airtable re-hosts) so gallery views show images; skipped if present unless `force`. |
+| C3 | Writes the stable cover URL to the record's `Cover art URL`; returns it. |
+| C3b | Also writes `Cover art attachment` (a display copy Airtable re-hosts) so gallery views show images; skipped if present unless `force`. |
 | C4 | Idempotent: re-running yields the same key/URL and no duplicate side effects. |
 | C5 | Clear errors: game not found (404-style), upstream failure (5xx-style). |
 | C6 | Backfill CLI invokes the Lambda for every game without cover art. |

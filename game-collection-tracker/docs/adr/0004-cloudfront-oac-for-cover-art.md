@@ -3,7 +3,7 @@
 Status: accepted
 
 ## Context
-Airtable's `Cover Art URL` needs a link that keeps working. Options:
+Airtable's `Cover art URL` needs a link that keeps working. Options:
 
 | Option | Stable link | Bucket stays private | Complexity |
 |--------|-------------|----------------------|------------|

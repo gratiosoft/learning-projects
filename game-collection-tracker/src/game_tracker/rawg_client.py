@@ -61,8 +61,16 @@ class RawgClient:
         if not results:
             raise GameNotFoundError(f"no cover found for {title!r}")
         wanted = normalize(title)
-        # Exact normalized title wins; otherwise trust RAWG's relevance order.
-        best = next((r for r in results if normalize(r["name"]) == wanted), results[0])
+        # 1) exact normalized title; 2) a result whose name contains every word of the
+        # query (e.g. "Witcher 3" -> "The Witcher 3: Wild Hunt"), in RAWG's relevance order.
+        # Anything looser risks a wrong cover (RAWG happily returns fuzzy junk), and a clear
+        # "not found" is easier to fix: correct the Title and re-run.
+        words = set(wanted.split())
+        best = next((r for r in results if normalize(r["name"]) == wanted), None) or next(
+            (r for r in results if words <= set(normalize(r["name"]).split())), None
+        )
+        if best is None:
+            raise GameNotFoundError(f"no confident match for {title!r}")
         return Cover(name=best["name"], image_url=best["background_image"])
 
     def download(self, image_url: str) -> tuple[bytes, str]:

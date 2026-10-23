@@ -58,7 +58,7 @@ def _attach(d: Deps, record_id: str, url: str, force: bool) -> bool:
     Airtable downloads the file from our CloudFront URL and keeps its own copy; S3 stays
     the source of truth. On force we add a throwaway query string so Airtable does not
     reuse the attachment it already has for the same URL. A failure here is not fatal:
-    `Cover Art URL` is already saved.
+    `Cover art URL` is already saved.
     """
     shown = f"{url}?v={int(time.time())}" if force else url
     try:

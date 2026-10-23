@@ -6,7 +6,7 @@ Status: accepted
 Options: manual invoke, a Function URL called by an Airtable automation script, or a backfill CLI that invokes the Lambda for every game lacking cover art.
 
 ## Decision
-Implement a **backfill CLI** (`backfill`) that lists games with an empty `Cover Art URL` and calls `lambda:Invoke` through boto3 with the owner's own AWS credentials. Manual invoke (`aws lambda invoke`) works with the same payload. **No Function URL or API Gateway** for now.
+Implement a **backfill CLI** (`backfill`) that lists games with an empty `Cover art URL` and calls `lambda:Invoke` through boto3 with the owner's own AWS credentials. Manual invoke (`aws lambda invoke`) works with the same payload. **No Function URL or API Gateway** for now.
 
 ## Consequences
 - No public endpoint, so no auth scheme to design or get wrong, and nothing extra to pay for or secure.

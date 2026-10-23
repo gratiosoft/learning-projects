@@ -18,16 +18,17 @@ _PALETTE = [
 ]  # fmt: skip
 
 
-def _select(name: str, options: list[str]) -> dict:
+def _select(name: str, options: list[str], multiple: bool = False) -> dict:
     assert len(options) <= len(_PALETTE)
     return {
         "name": name,
-        "type": "singleSelect",
+        "type": "multipleSelects" if multiple else "singleSelect",
         "options": {"choices": [{"name": o, "color": _PALETTE[i]} for i, o in enumerate(options)]},
     }
 
 
 def games_table(name: str = "Games") -> dict:
+    """Mirrors the table the owner built by hand (names are case-sensitive in the API)."""
     return {
         "name": name,
         "description": "Video game collection",
@@ -35,40 +36,20 @@ def games_table(name: str = "Games") -> dict:
             {"name": "Title", "type": "singleLineText"},  # first field = primary
             _select(
                 "Platform",
-                [
-                    "PC",
-                    "PlayStation 5",
-                    "PlayStation 4",
-                    "Xbox Series X|S",
-                    "Nintendo Switch",
-                    "Other",
-                ],
+                ["Steam", "Xbox Game Pass", "PlayStation Store", "Nintendo eShop"],
+                multiple=True,
             ),
-            _select(
-                "Genre",
-                [
-                    "Action",
-                    "Adventure",
-                    "RPG",
-                    "Strategy",
-                    "Shooter",
-                    "Puzzle",
-                    "Platformer",
-                    "Sports",
-                    "Simulation",
-                    "Other",
-                ],
-            ),  # fmt: skip
-            _select("Completion Status", ["Backlog", "Playing", "Completed", "Dropped"]),
+            _select("Genre", ["Horror", "Action", "FPS", "Open-world"], multiple=True),
+            _select("Completion status", ["Not played", "Playing", "Completed"]),
             {
                 "name": "Rating",
                 "type": "rating",
                 "options": {"max": 5, "icon": "star", "color": "yellowBright"},
             },
-            {"name": "Cover Art URL", "type": "url"},
-            _select("Review Status", ["Unreviewed", "Reviewed"]),
-            # Display copy for gallery views (ADR 0007); Cover Art URL stays the source of truth.
-            {"name": "Cover Art Attachment", "type": "multipleAttachments"},
+            {"name": "Cover art URL", "type": "url"},
+            # Display copy for gallery views (ADR 0007); Cover art URL stays the source of truth.
+            {"name": "Cover art attachment", "type": "multipleAttachments"},
+            _select("Review status", ["Unreviewed", "Reviewed"]),
         ],
     }
 

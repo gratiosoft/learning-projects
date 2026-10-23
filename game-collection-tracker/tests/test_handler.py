@@ -80,8 +80,8 @@ def test_idempotent_rerun_skips_work(deps):
             "id": "rec1",
             "fields": {
                 "Title": "Hades",
-                "Cover Art URL": first["url"],
-                "Cover Art Attachment": [{"url": first["url"]}],
+                "Cover art URL": first["url"],
+                "Cover art attachment": [{"url": first["url"]}],
             },
         },
     )
@@ -116,7 +116,7 @@ def test_force_refetches_even_when_cover_exists(deps):
     responses.replace(
         responses.GET,
         f"{AT}/rec1",
-        json={"id": "rec1", "fields": {"Title": "Hades II", "Cover Art URL": first["url"]}},
+        json={"id": "rec1", "fields": {"Title": "Hades II", "Cover art URL": first["url"]}},
     )
     responses.replace(
         responses.GET, RAWG, json={"results": [{"name": "Hades II", "background_image": IMG}]}
@@ -137,9 +137,9 @@ def test_attachment_written_after_url(deps):
     _mock_happy_path()
     lambda_handler({"record_id": "rec1"}, deps=d)
     patches = _bodies("PATCH")
-    assert "Cover Art URL" in patches[0]["records"][0]["fields"]
+    assert "Cover art URL" in patches[0]["records"][0]["fields"]
     assert patches[1]["records"][0]["fields"] == {
-        "Cover Art Attachment": [{"url": f"{CDN}/covers/rec1.jpg"}]
+        "Cover art attachment": [{"url": f"{CDN}/covers/rec1.jpg"}]
     }
 
 
@@ -152,12 +152,12 @@ def test_attachment_skipped_when_present(deps):
         f"{AT}/rec1",
         json={
             "id": "rec1",
-            "fields": {"Title": "Hades", "Cover Art Attachment": [{"url": "https://x/y.jpg"}]},
+            "fields": {"Title": "Hades", "Cover art attachment": [{"url": "https://x/y.jpg"}]},
         },
     )
     lambda_handler({"record_id": "rec1"}, deps=d)
     patches = _bodies("PATCH")
-    assert len(patches) == 1 and "Cover Art URL" in patches[0]["records"][0]["fields"]
+    assert len(patches) == 1 and "Cover art URL" in patches[0]["records"][0]["fields"]
 
 
 @responses.activate
@@ -169,13 +169,13 @@ def test_attachment_rewritten_on_force(deps):
         f"{AT}/rec1",
         json={
             "id": "rec1",
-            "fields": {"Title": "Hades", "Cover Art Attachment": [{"url": "https://x/y.jpg"}]},
+            "fields": {"Title": "Hades", "Cover art attachment": [{"url": "https://x/y.jpg"}]},
         },
     )
     lambda_handler({"record_id": "rec1", "force": True}, deps=d)
     patches = _bodies("PATCH")
     assert len(patches) == 2
-    assert patches[1]["records"][0]["fields"]["Cover Art Attachment"][0]["url"].startswith(
+    assert patches[1]["records"][0]["fields"]["Cover art attachment"][0]["url"].startswith(
         f"{CDN}/covers/rec1.jpg?v="
     )
 
@@ -200,7 +200,7 @@ def test_cached_path_backfills_missing_attachment(deps):
     responses.replace(
         responses.GET,
         f"{AT}/rec1",
-        json={"id": "rec1", "fields": {"Title": "Hades", "Cover Art URL": first["url"]}},
+        json={"id": "rec1", "fields": {"Title": "Hades", "Cover art URL": first["url"]}},
     )
     out = lambda_handler({"record_id": "rec1"}, deps=d)
     assert out["cached"] is True

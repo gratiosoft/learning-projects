@@ -33,5 +33,11 @@ def test_settings_requires_base_id(monkeypatch):
     monkeypatch.delenv("AIRTABLE_BASE_ID", raising=False)
     with pytest.raises(MissingSecretError):
         Settings.from_env()
-    monkeypatch.setenv("AIRTABLE_BASE_ID", "appX")
+    monkeypatch.setenv("AIRTABLE_BASE_ID", "appABCDEFGHIJKLMN")
     assert Settings.from_env().airtable_table == "Games"
+
+
+def test_settings_rejects_malformed_base_id(monkeypatch):
+    monkeypatch.setenv("AIRTABLE_BASE_ID", "appABCDEFGHIJKLMN# app... (see README)")
+    with pytest.raises(MissingSecretError):
+        Settings.from_env()

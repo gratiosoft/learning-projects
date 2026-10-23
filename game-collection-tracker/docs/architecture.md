@@ -30,7 +30,7 @@ flowchart LR
     lambda -->|read secrets| ssm
     lambda -->|search game| rawg
     lambda -->|put object| s3
-    lambda -->|update Cover Art URL| base
+    lambda -->|update Cover art URL| base
     cf -->|origin read| s3
     iface -->|loads cover image| cf
 ```
@@ -70,7 +70,7 @@ sequenceDiagram
     C->>L: {record_id} or {title}
     L->>P: get RAWG key + Airtable token (cached per container)
     alt record_id given
-        L->>A: GET record (title, current Cover Art URL)
+        L->>A: GET record (title, current Cover art URL)
     end
     L->>R: GET /games?search=title
     R-->>L: results (best match by normalized title)
@@ -79,8 +79,8 @@ sequenceDiagram
     end
     L->>R: GET image URL
     L->>S: PutObject covers/<record_id>.jpg (ContentType)
-    L->>A: PATCH record: Cover Art URL = https://<cloudfront>/covers/<record_id>.jpg
-    L->>A: PATCH record: Cover Art Attachment = [{url}] (display copy, ADR 0007)
+    L->>A: PATCH record: Cover art URL = https://<cloudfront>/covers/<record_id>.jpg
+    L->>A: PATCH record: Cover art attachment = [{url}] (display copy, ADR 0007)
     L-->>C: {url}
 ```
 

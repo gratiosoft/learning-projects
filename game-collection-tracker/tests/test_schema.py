@@ -5,9 +5,9 @@ from game_tracker.schema import META, ensure_games_table, games_table
 
 
 def test_every_select_option_has_a_distinct_color():
-    selects = [f for f in games_table()["fields"] if f["type"] == "singleSelect"]
+    selects = [f for f in games_table()["fields"] if "Select" in f["type"]]
     assert {f["name"] for f in selects} == {
-        "Platform", "Genre", "Completion Status", "Review Status",
+        "Platform", "Genre", "Completion status", "Review status",
     }  # fmt: skip
     for f in selects:
         colors = [c["color"] for c in f["options"]["choices"]]
@@ -17,8 +17,8 @@ def test_every_select_option_has_a_distinct_color():
 def test_required_fields_present_and_title_is_primary():
     names = [f["name"] for f in games_table()["fields"]]
     assert names[0] == "Title"
-    assert {"Platform", "Genre", "Completion Status", "Rating", "Cover Art URL",
-            "Review Status"} <= set(names)  # fmt: skip
+    assert {"Platform", "Genre", "Completion status", "Rating", "Cover art URL",
+            "Review status"} <= set(names)  # fmt: skip
 
 
 @responses.activate
@@ -37,7 +37,7 @@ def test_idempotent_when_table_exists():
 
 
 def test_cli_prints_ids(monkeypatch, capsys):
-    monkeypatch.setenv("AIRTABLE_BASE_ID", "appX")
+    monkeypatch.setenv("AIRTABLE_BASE_ID", "appABCDEFGHIJKLMN")
     monkeypatch.setenv("AIRTABLE_TOKEN", "t")
     table = {
         "id": "tbl1",

@@ -74,5 +74,13 @@ def test_error_raises(client):
 @responses.activate
 def test_filter_and_fields_params(client):
     responses.get(URL, json={"records": []})
-    list(client.list_records(formula="{Cover Art URL} = ''", fields=["Title"]))
+    list(client.list_records(formula="{Cover art URL} = ''", fields=["Title"]))
     assert "filterByFormula" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_delete_batches_of_ten(client):
+    responses.delete(URL, json={"records": [{"id": "r", "deleted": True}] * 10})
+    responses.delete(URL, json={"records": [{"id": "r", "deleted": True}] * 2})
+    assert client.delete_records([f"rec{i}" for i in range(12)]) == 12
+    assert len(responses.calls) == 2

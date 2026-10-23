@@ -7,6 +7,7 @@ then SSM Parameter Store (Lambda). The Lambda role may only read /game-tracker/*
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 
 import boto3
@@ -50,8 +51,12 @@ class Settings:
                 raise MissingSecretError(f"{key} is not set")
             return value
 
+        base_id = need("AIRTABLE_BASE_ID")
+        if not re.fullmatch(r"app[A-Za-z0-9]{14}", base_id):
+            # Catches stray text such as an inline "# comment" pasted into .env.
+            raise MissingSecretError("AIRTABLE_BASE_ID must look like app + 14 letters/digits")
         return cls(
-            airtable_base_id=need("AIRTABLE_BASE_ID"),
+            airtable_base_id=base_id,
             airtable_table=os.environ.get("AIRTABLE_TABLE", "Games"),
             covers_bucket=os.environ.get("COVERS_BUCKET", ""),
             cover_base_url=os.environ.get("COVER_BASE_URL", "").rstrip("/"),

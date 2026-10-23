@@ -22,11 +22,11 @@ MIN_INTERVAL = 0.2  # 5 req/s
 F_TITLE = "Title"
 F_PLATFORM = "Platform"
 F_GENRE = "Genre"
-F_STATUS = "Completion Status"
+F_STATUS = "Completion status"
 F_RATING = "Rating"
-F_COVER_URL = "Cover Art URL"
-F_REVIEW = "Review Status"
-F_ATTACHMENT = "Cover Art Attachment"
+F_COVER_URL = "Cover art URL"
+F_REVIEW = "Review status"
+F_ATTACHMENT = "Cover art attachment"
 
 
 class AirtableError(RuntimeError):
@@ -109,3 +109,12 @@ class AirtableClient:
             body = {"records": updates[i : i + BATCH_SIZE], "typecast": typecast}
             updated += self._request("PATCH", self.url, json=body)["records"]
         return updated
+
+    def delete_records(self, record_ids: list[str]) -> int:
+        """Delete records, 10 per request (used to clean up test data)."""
+        deleted = 0
+        for i in range(0, len(record_ids), BATCH_SIZE):
+            batch = record_ids[i : i + BATCH_SIZE]
+            data = self._request("DELETE", self.url, params={"records[]": batch})
+            deleted += len(data["records"])
+        return deleted

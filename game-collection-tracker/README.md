@@ -10,7 +10,8 @@ Docs: [PRD](docs/prd.md) · [Architecture](docs/architecture.md) · [ADRs](docs/
 |------|-------|
 | Python client, CLI, Lambda handler, tests | done, tests pass offline |
 | Terraform (`infra/`) | written, `fmt` and `validate` pass, **not applied** |
-| Airtable base, form, automations, interface | **pending**: `uv run setup-base` creates the table; the rest is manual, see [manual-steps.md](docs/manual-steps.md) |
+| Airtable base and form | table and form exist (built by hand), verified live |
+| Airtable automations, interface | manual, see [manual-steps.md](docs/manual-steps.md) |
 
 ## Setup
 
@@ -24,7 +25,7 @@ cp .env.example .env       # fill in values; .env is gitignored
 ```bash
 uv run setup-base                      # once: creates the Games table (needs schema.bases:write)
 uv run list-games
-uv run add-game --title "Hades" --platform PC --status Backlog --rating 5
+uv run add-game --title "Hades" --platform Steam --genre Action --status "Not played" --rating 5
 uv run backfill-covers --dry-run     # then without --dry-run once deployed
 ```
 
@@ -53,9 +54,22 @@ Cost is near zero within the free tiers. `terraform destroy` removes everything 
 
 ## Airtable
 
-Base: **not created yet.** Once created, its base ID and table/field IDs are recorded here (IDs are not secrets; the token never goes in the repo).
+Base **Game Collection Tracker**: `app1kBugyp3q8ftks` · table `Games`: `tblVWPMLcgbX3ZqNO` · form view "Add game". IDs are not secrets; the token never goes in the repo.
 
-Cover art: S3 + CloudFront is the source of truth (`Cover Art URL`). The Lambda also writes `Cover Art Attachment` so gallery views show images; **Airtable downloads and keeps its own copy** of that file (counts toward the 1 GB Free attachment quota). See [ADR 0007](docs/adr/0007-attachment-display-copy.md).
+| Field | ID | Type |
+|-------|----|------|
+| Title | `fldx6qjcGB9yb51lG` | single line text (primary) |
+| Platform | `fldi86d4pcPzQt6pr` | multiple select |
+| Genre | `fldpeNOzgyXRUYTkD` | multiple select |
+| Completion status | `fldXQkNMHD8EQ7wpy` | single select |
+| Rating | `fldliwWWQAzlzbogn` | rating (5 stars) |
+| Cover art URL | `fldXUvUiDQQbUK7Lx` | URL (written by the Lambda) |
+| Cover art attachment | `fldqlpeWhIprfvIFi` | attachments (display copy, below) |
+| Review status | `fldHPlgTKZK11LnhS` | single select (Unreviewed / Reviewed) |
+
+Field names are case-sensitive in the API (`Completion status`, not `Completion Status`). The table was built by hand; `uv run setup-base` mirrors it for a fresh base and does nothing if `Games` exists. Select options are never auto-created (no `typecast`), so a typo in `--platform` fails instead of adding an uncolored option.
+
+Cover art: S3 + CloudFront is the source of truth (`Cover art URL`). The Lambda also writes `Cover art attachment` so gallery views show images; **Airtable downloads and keeps its own copy** of that file (counts toward the 1 GB Free attachment quota). See [ADR 0007](docs/adr/0007-attachment-display-copy.md).
 
 ## Layout
 

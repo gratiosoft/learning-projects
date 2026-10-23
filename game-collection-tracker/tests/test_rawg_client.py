@@ -22,17 +22,24 @@ def test_picks_exact_title_match_over_first_result():
 
 
 @responses.activate
-def test_falls_back_to_first_result_and_skips_imageless():
+def test_partial_title_matches_when_all_words_present_and_skips_imageless():
     responses.get(
         SEARCH,
         json={
             "results": [
-                {"name": "X", "background_image": None},
-                {"name": "Y", "background_image": "u"},
+                {"name": "Witcher 3 Mod", "background_image": None},
+                {"name": "The Witcher 3: Wild Hunt", "background_image": "u"},
             ]
         },
     )
-    assert RawgClient("k").find_cover("something").name == "Y"
+    assert RawgClient("k").find_cover("witcher 3").name == "The Witcher 3: Wild Hunt"
+
+
+@responses.activate
+def test_fuzzy_junk_is_rejected():
+    responses.get(SEARCH, json={"results": [{"name": "A Sirius Game", "background_image": "u"}]})
+    with pytest.raises(GameNotFoundError):
+        RawgClient("k").find_cover("zzzqqq not a game")
 
 
 @responses.activate
