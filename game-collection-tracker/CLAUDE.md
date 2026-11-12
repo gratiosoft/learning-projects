@@ -28,3 +28,4 @@ Python 3.12 + uv, ruff, pytest, `responses` (HTTP mocks), `moto` (AWS mocks). Te
 - Terraform creates SSM parameters with a `CHANGE_ME` placeholder and ignores value changes; real secrets are set with the AWS CLI and must never enter state.
 - The Lambda role needs `s3:ListBucket`, otherwise `HeadObject` on a missing key returns 403, not 404.
 - Never commit `.env`, `*.tfstate`, `.terraform/` (the lock file `.terraform.lock.hcl` is committed).
+- Never generate `infra/terraform.tfvars` from a `.env` line that has an inline `# comment`: the comment ends up in the value (this once deployed a malformed `AIRTABLE_BASE_ID`). Keep comments on their own lines; `variables.tf` validates the ID at plan time.

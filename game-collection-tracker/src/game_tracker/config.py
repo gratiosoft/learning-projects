@@ -15,8 +15,12 @@ import boto3
 SSM_PREFIX = os.environ.get("SSM_PREFIX", "/game-tracker")
 
 
-class MissingSecretError(RuntimeError):
-    pass
+class ConfigError(RuntimeError):
+    """Configuration is missing or malformed."""
+
+
+class MissingSecretError(ConfigError):
+    """A required secret or setting is absent (or still the placeholder)."""
 
 
 def get_secret(name: str, ssm_client=None) -> str:
@@ -54,7 +58,7 @@ class Settings:
         base_id = need("AIRTABLE_BASE_ID")
         if not re.fullmatch(r"app[A-Za-z0-9]{14}", base_id):
             # Catches stray text such as an inline "# comment" pasted into .env.
-            raise MissingSecretError("AIRTABLE_BASE_ID must look like app + 14 letters/digits")
+            raise ConfigError("AIRTABLE_BASE_ID is malformed: expected app + 14 letters/digits")
         return cls(
             airtable_base_id=base_id,
             airtable_table=os.environ.get("AIRTABLE_TABLE", "Games"),

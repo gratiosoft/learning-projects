@@ -2,7 +2,7 @@ import boto3
 import pytest
 from moto import mock_aws
 
-from game_tracker.config import MissingSecretError, Settings, get_secret
+from game_tracker.config import ConfigError, MissingSecretError, Settings, get_secret
 
 
 def test_env_wins(monkeypatch):
@@ -39,5 +39,8 @@ def test_settings_requires_base_id(monkeypatch):
 
 def test_settings_rejects_malformed_base_id(monkeypatch):
     monkeypatch.setenv("AIRTABLE_BASE_ID", "appABCDEFGHIJKLMN# app... (see README)")
-    with pytest.raises(MissingSecretError):
+    with pytest.raises(ConfigError) as exc:
         Settings.from_env()
+    # Malformed is not "missing": the value was present, so the error must say so.
+    assert not isinstance(exc.value, MissingSecretError)
+    assert "malformed" in str(exc.value)
