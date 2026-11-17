@@ -103,3 +103,15 @@ flowchart LR
 - IAM role: `s3:PutObject`/`GetObject`/`HeadObject` on `covers/*` only, `ssm:GetParameter` on `/game-tracker/*`, log writes to its own log group.
 - The bucket policy allows reads only from this CloudFront distribution.
 - Secret values are never in Terraform: parameters are created with a placeholder and `ignore_changes` on the value; the owner sets the real value with the AWS CLI.
+
+### Deployed values (applied, `us-east-1`)
+
+| Item | Value |
+|------|-------|
+| Lambda | `game-tracker-cover-art` (python3.12, 256 MB, 30 s) |
+| Bucket | `game-tracker-covers-546135990880`, private, AES256 |
+| CloudFront | `https://d7yqaa992ies3.cloudfront.net`, OAC, `redirect-to-https`, managed CachingOptimized |
+| Secrets | SSM SecureString `/game-tracker/RAWG_API_KEY`, `/game-tracker/AIRTABLE_TOKEN` |
+| Trigger | `uv run backfill-covers` calls `lambda:Invoke` (ADR 0005); no public endpoint |
+
+A request for a cover that does not exist returns 403 from CloudFront, not 404, because the origin role has no `s3:ListBucket` for CloudFront. That is expected and harmless.

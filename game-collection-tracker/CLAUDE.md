@@ -29,3 +29,7 @@ Python 3.12 + uv, ruff, pytest, `responses` (HTTP mocks), `moto` (AWS mocks). Te
 - The Lambda role needs `s3:ListBucket`, otherwise `HeadObject` on a missing key returns 403, not 404.
 - Never commit `.env`, `*.tfstate`, `.terraform/` (the lock file `.terraform.lock.hcl` is committed).
 - Never generate `infra/terraform.tfvars` from a `.env` line that has an inline `# comment`: the comment ends up in the value (this once deployed a malformed `AIRTABLE_BASE_ID`). Keep comments on their own lines; `variables.tf` validates the ID at plan time.
+- RAWG outages return Cloudflare 5xx (e.g. 522). The handler maps them to `502 upstream_error` and writes nothing; just re-run.
+- CloudFront returns 403, not 404, for a cover that does not exist.
+- Deleting a record does not delete its S3 object or CloudFront cache entry: remove `covers/<record_id>.jpg` yourself.
+- The S3 bucket has no `force_destroy`: empty it before `terraform destroy`.
