@@ -8,13 +8,14 @@ Docs: [PRD](docs/prd.md) · [Architecture](docs/architecture.md) · [ADRs](docs/
 
 | Part | State |
 |------|-------|
-| Python client, CLI, Lambda handler, tests | done; 52 tests pass offline |
-| Terraform (`infra/`) | **applied** to AWS (profile `giancarlo`, `us-east-1`); 14 resources |
+| Python client, CLI, Lambda handlers, tests | done; 60 tests pass offline |
+| Terraform (`infra/`) | **applied** to AWS (profile `giancarlo`, `us-east-1`); 19 resources |
 | Cover-art Lambda | deployed and verified end to end (see [Verification](#verification-results)) |
 | Airtable base and form | table and form exist (built by hand), verified live |
-| Airtable automations, interface, sharing | manual, see [manual-steps.md](docs/manual-steps.md) |
+| Scheduled backfill (EventBridge, daily) | deployed and verified live ([ADR 0008](docs/adr/0008-scheduled-backfill.md)) |
+| Airtable form, automations, interface, sharing | done by the owner, see [manual-steps.md](docs/manual-steps.md) |
 
-Deployed: function `game-tracker-cover-art`, bucket `game-tracker-covers-546135990880` (private), CloudFront `https://d7yqaa992ies3.cloudfront.net`.
+Deployed: functions `game-tracker-cover-art` and `game-tracker-scheduled-backfill`, bucket `game-tracker-covers-546135990880` (private), CloudFront `https://d7yqaa992ies3.cloudfront.net`.
 
 ## Setup
 
@@ -31,8 +32,12 @@ uv run list-games
 uv run add-game --title "Hades" --platform Steam --genre Action --status "Not played" --rating 5
 uv run backfill-covers --preview     # RAWG lookup only; no S3, Lambda or Airtable writes
 uv run backfill-covers --dry-run     # list games that need a cover
-uv run backfill-covers               # invoke the Lambda for each (needs AWS credentials)
+uv run backfill-covers               # invoke the Lambda for each (needs AWS credentials); stops after 3 consecutive upstream errors
 ```
+
+### Covers appear automatically
+
+A daily EventBridge schedule runs `game-tracker-scheduled-backfill`, which adds covers to games that have none (at most 10 per run). A game a friend submits gets its cover **within a day**. To get it immediately, run `uv run backfill-covers` or invoke the scheduled function (`aws lambda invoke --function-name game-tracker-scheduled-backfill --cli-binary-format raw-in-base64-out --payload '{}' out.json`). The form must not include `Cover art URL` or `Cover art attachment` fields, or those records look already covered ([manual-steps.md](docs/manual-steps.md), step B).
 
 ## Test and lint
 
@@ -76,11 +81,22 @@ Run against the deployed stack (profile `giancarlo`, `us-east-1`):
 | CloudWatch logs | no errors, no RAWG key or Airtable token present |
 | Backfill, 6 games with a Title and no cover | 5 updated; 1 `game_not_found` (a deliberately bad title); a second run listed only the unmatched one |
 
-Not verified: gallery rendering in an Airtable interface (interfaces are built by hand), and `terraform destroy`.
+Scheduled backfill (added later; live):
+
+| Check | Result |
+|-------|--------|
+| `cover_art` invoked with `force` on one record | 200, `cached: false`, clean logs |
+| `add-game` + the scheduled function invoked manually | `{updated: 2, skipped: 0, not_found: 0, errors: 0, remaining: 0}` (the new game plus one form-submitted game that had no cover) |
+| New record | `Cover art URL` and attachment populated; CloudFront 200 `image/jpeg`; attachment URL reachable |
+| Second invocation | no-op, all counts 0 |
+| Schedule rule | `ENABLED`, `rate(1 day)` |
+| Logs (both groups) | no errors; no RAWG key or Airtable token |
+
+Gallery rendering is confirmed by the owner (interfaces cannot be read through the API). `terraform destroy` has not been tested. The 3-consecutive-error stop is covered by mocked tests only (no real outage was available).
 
 ## Costs and teardown
 
-Everything fits the free tiers for a personal collection: Lambda, S3, CloudFront (1 TB/month), SSM standard parameters and 14-day log retention. Airtable Free limits apply separately.
+Everything fits the free tiers for a personal collection: Lambda, S3, CloudFront (1 TB/month), SSM standard parameters and 14-day log retention. The schedule adds one Lambda invocation a day (a few seconds; negligible, inside the free tier). To switch it off without destroying anything, set `backfill_enabled = false` in `infra/terraform.tfvars` and apply; `backfill_schedule` and `max_per_run` are variables too. Airtable Free limits apply separately.
 
 To remove everything:
 
@@ -113,7 +129,7 @@ Cover art: S3 + CloudFront is the source of truth (`Cover art URL`). The Lambda 
 ## Layout
 
 ```
-src/game_tracker/   airtable_client, rawg_client, s3_uploader, handler, config, cli
+src/game_tracker/   airtable_client, rawg_client, s3_uploader, handler, backfill, config, cli
 tests/              pytest, mocks via responses and moto
 infra/              Terraform
 scripts/package.sh  builds build/lambda.zip

@@ -1,6 +1,6 @@
 # 0005. How the Lambda is triggered
 
-Status: accepted
+Status: accepted; the trigger part is superseded by [0008](0008-scheduled-backfill.md) (scheduled backfill). The manual CLI and `aws lambda invoke` remain available.
 
 ## Context
 Options: manual invoke, a Function URL called by an Airtable automation script, or a backfill CLI that invokes the Lambda for every game lacking cover art.

@@ -21,12 +21,14 @@ flowchart LR
       ssm[SSM Parameter Store]
     end
     rawg[RAWG API]
+    sched[EventBridge schedule, daily]
 
     friends -->|submit| form --> base
     owner -->|view, edit| iface --> base
     base --> auto
     owner -->|CLI: list/add/backfill| base
     owner -->|CLI: backfill invokes| lambda
+    sched -->|invokes scheduled_backfill| lambda
     lambda -->|read secrets| ssm
     lambda -->|search game| rawg
     lambda -->|put object| s3
@@ -41,7 +43,8 @@ flowchart LR
 flowchart TB
     subgraph pkg["src/game_tracker/"]
       cli[cli.py: list-games, add-game, backfill]
-      handler[handler.py: Lambda entry point]
+      handler[handler.py: lambda_handler + scheduled_backfill]
+      bf[backfill.py: shared loop, stops after 3 upstream errors]
       config[config.py: env + SSM secrets]
       at[airtable_client.py]
       rawgc[rawg_client.py]
@@ -49,6 +52,8 @@ flowchart TB
     end
     cli --> at
     cli -->|boto3 lambda.invoke| handler
+    cli --> bf
+    handler --> bf
     handler --> config
     handler --> at
     handler --> rawgc
@@ -86,6 +91,26 @@ sequenceDiagram
 
 Idempotency: the S3 key derives from the record id, so a re-run overwrites the same object and PATCHes the same URL. If the record already has the expected URL and the object exists, the handler returns early without calling RAWG.
 
+### Scheduled backfill
+
+```mermaid
+sequenceDiagram
+    participant E as EventBridge (rate 1 day)
+    participant B as scheduled_backfill
+    participant A as Airtable
+    participant L as lambda_handler (same code path)
+    E->>B: invoke
+    B->>A: list records with Title and empty Cover art URL
+    loop at most MAX_PER_RUN records
+        B->>L: enrich(record_id)
+        L-->>B: 200 / 404 / 502
+        Note over B: 3 consecutive 502s stop the run
+    end
+    B-->>E: {updated, skipped, not_found, errors, remaining}
+```
+
+See [ADR 0008](adr/0008-scheduled-backfill.md).
+
 ## 4. Deployment
 
 ```mermaid
@@ -95,12 +120,13 @@ flowchart LR
     tf --> s3b[S3 bucket: private, encrypted, block public access]
     tf --> cfd[CloudFront distribution + OAC]
     tf --> fn[Lambda + log group + IAM role]
+    tf --> sf[Scheduled Lambda + log group + EventBridge rule]
     tf --> sp[SSM SecureString placeholders]
     dev -->|aws ssm put-parameter| sp
     zip --> fn
 ```
 
-- IAM role: `s3:PutObject`/`GetObject`/`HeadObject` on `covers/*` only, `ssm:GetParameter` on `/game-tracker/*`, log writes to its own log group.
+- IAM role (shared by both functions): `s3:PutObject`/`GetObject` on `covers/*`, `s3:ListBucket` on the bucket, `ssm:GetParameter` on the two secrets, log writes to the two function log groups only.
 - The bucket policy allows reads only from this CloudFront distribution.
 - Secret values are never in Terraform: parameters are created with a placeholder and `ignore_changes` on the value; the owner sets the real value with the AWS CLI.
 
@@ -112,6 +138,7 @@ flowchart LR
 | Bucket | `game-tracker-covers-546135990880`, private, AES256 |
 | CloudFront | `https://d7yqaa992ies3.cloudfront.net`, OAC, `redirect-to-https`, managed CachingOptimized |
 | Secrets | SSM SecureString `/game-tracker/RAWG_API_KEY`, `/game-tracker/AIRTABLE_TOKEN` |
-| Trigger | `uv run backfill-covers` calls `lambda:Invoke` (ADR 0005); no public endpoint |
+| Scheduled Lambda | `game-tracker-scheduled-backfill` (python3.12, 256 MB, 300 s, `MAX_PER_RUN=10`), rule `game-tracker-scheduled-backfill-schedule`, `rate(1 day)`, ENABLED |
+| Triggers | schedule (ADR 0008), `uv run backfill-covers` via `lambda:Invoke`, or manual `aws lambda invoke`; no public endpoint |
 
 A request for a cover that does not exist returns 403 from CloudFront, not 404, because the origin role has no `s3:ListBucket` for CloudFront. That is expected and harmless.

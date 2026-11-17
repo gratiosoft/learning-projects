@@ -1,6 +1,6 @@
 # PRD: Game Collection Tracker
 
-Status: draft · Owner: repo owner (junior dev, learning project)
+Status: accepted · Owner: repo owner (junior dev, learning project)
 
 ## Problem
 
@@ -60,7 +60,8 @@ The table and form are built by hand and through the Airtable REST API. Forms, i
 | C3b | Also writes `Cover art attachment` (a display copy Airtable re-hosts) so gallery views show images; skipped if present unless `force`. |
 | C4 | Idempotent: re-running yields the same key/URL and no duplicate side effects. |
 | C5 | Clear errors: game not found (404-style), upstream failure (5xx-style). |
-| C6 | Backfill CLI invokes the Lambda for every game without cover art. |
+| C6 | Backfill CLI invokes the Lambda for every game without cover art, and stops after 3 consecutive upstream errors. |
+| C8 | A daily EventBridge schedule fills in covers for games without one (at most 10 per run, same stop rule), so friends' submissions get covers without anyone running the CLI. Switchable off. |
 | C7 | All AWS resources defined in Terraform; no secrets in code, state or logs. |
 
 ## Success metrics

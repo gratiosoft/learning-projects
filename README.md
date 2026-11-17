@@ -6,7 +6,7 @@ Hands-on projects for learning Airtable (Free plan), AWS Lambda/S3, and third-pa
 
 | # | Project | Status | Folder |
 |---|---------|--------|--------|
-| 1 | Game Collection Tracker | In progress (`feat/game-collection-tracker`) | [game-collection-tracker/](game-collection-tracker/) |
+| 1 | Game Collection Tracker | Complete (`feat/game-collection-tracker`) | [game-collection-tracker/](game-collection-tracker/) |
 | 2 | Music Playlist Curator | Not started | — |
 | 3 | Personal Fitness Log | Not started | — |
 | 4 | Mini Movie Review Site | Not started | — |

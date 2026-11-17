@@ -9,13 +9,16 @@ The public Airtable REST API cannot create forms, interfaces or automations, so 
 3. Run `uv run setup-base`. It creates `Games` with colored select options and prints the table and field IDs. Paste them into the README under "Airtable".
 4. In the base, delete the empty default "Table 1".
 
-## B. Form (roadmap step 2)
+## B. Form (roadmap step 2) — done by the owner
 
 1. In `Games`, click **+** next to the views list, choose **Form**, name it "Add a game".
 2. Show: Title (required), Platform, Genre, Completion Status, Rating. Hide: Cover Art URL, Cover Art Attachment, Review Status.
-3. Optional: set Completion Status default to "Backlog" via the field's "prefill" in the form editor.
+3. **Required:** the form must NOT contain `Cover art URL` or `Cover art attachment`. A value typed there makes the record look "already covered" and the scheduled backfill will skip it. Check the form editor's field list after any change.
+4. Optional: set Completion Status default to "Backlog" via the field's "prefill" in the form editor.
 
-## C. Automations (steps 4 and 5)
+## C. Automations (steps 4 and 5) — done by the owner
+
+Covers are not an automation: a daily EventBridge schedule fills them in (see below and [ADR 0008](adr/0008-scheduled-backfill.md)). Do not add an Airtable automation that calls AWS.
 
 1. **Automations** tab, **Create automation**, name "Tag new games".
    - Trigger: **When record created**, table `Games`.
@@ -27,7 +30,7 @@ The public Airtable REST API cannot create forms, interfaces or automations, so 
    - Turn it on.
 3. Test both by adding a record from the form, then check "Run history".
 
-## D. Interface: dashboard and gallery (steps 3 and 11)
+## D. Interface: dashboard and gallery (steps 3 and 11) — done by the owner; gallery shows covers
 
 1. **Interfaces** tab, **Create interface**, name "Game Collection", layout **Dashboard** or blank.
 2. Dashboard page: add number elements for **Total games** (count), **% completed** (needs a helper: add a formula checkbox field or a number element filtered to `Completion Status = Completed`; divide in a rollup/formula field, or show "Completed" and "Total" side by side), and **Average rating** (average of `Rating`).
@@ -35,15 +38,25 @@ The public Airtable REST API cannot create forms, interfaces or automations, so 
 4. Add filter controls for Platform, Genre and Completion Status.
 5. Publish the interface.
 
-## E. Sharing with friends (step 12)
+## E. Sharing with friends (step 12) — done by the owner
 
 1. Open the form view, **Share form**, copy the public link and send it to friends. They can submit without an account.
 2. To let friends view the collection, share the interface (**Publish**, then **Share**, choose "Anyone with the link can view").
 3. Do not share the base itself.
 
-## F. AWS (needs you)
+## F. AWS (done)
 
 1. Credentials: `aws configure sso --profile giancarlo` (or `aws configure --profile giancarlo`). Only a `default` profile exists right now. Check with `aws sts get-caller-identity --profile giancarlo`.
 2. `cp infra/terraform.tfvars.example infra/terraform.tfvars` and set `airtable_base_id`, `aws_profile = "giancarlo"`.
 3. `make plan` and review. `make deploy` only when you are ready.
 4. After apply, set the secrets yourself (see README, "Deploy").
+
+## G. After a friend submits a game
+
+The cover appears within a day (the scheduled function runs `rate(1 day)`). To see it immediately, run `uv run backfill-covers` or invoke the scheduled function:
+
+```bash
+aws lambda invoke --function-name game-tracker-scheduled-backfill --cli-binary-format raw-in-base64-out --payload '{}' out.json && cat out.json
+```
+
+The response shows `{updated, skipped, not_found, errors, remaining}`. A title that RAWG cannot match shows as `not_found`; fix the Title and it is picked up on the next run.
