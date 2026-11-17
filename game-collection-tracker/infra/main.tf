@@ -1,8 +1,9 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  function_name = "${var.name}-cover-art"
-  ssm_prefix    = "/${var.name}"
+  function_name           = "${var.name}-cover-art"
+  scheduled_function_name = "${var.name}-scheduled-backfill"
+  ssm_prefix              = "/${var.name}"
   # Bucket names are global; the account id keeps ours unique without a random suffix.
   bucket_name = "${var.name}-covers-${data.aws_caller_identity.current.account_id}"
 }
@@ -182,9 +183,12 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   statement {
-    sid       = "Logs"
-    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["${aws_cloudwatch_log_group.lambda.arn}:*"]
+    sid     = "Logs"
+    actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = [
+      "${aws_cloudwatch_log_group.lambda.arn}:*",
+      "${aws_cloudwatch_log_group.scheduled.arn}:*",
+    ]
   }
 }
 
@@ -215,4 +219,56 @@ resource "aws_lambda_function" "cover_art" {
   }
 
   depends_on = [aws_cloudwatch_log_group.lambda, aws_iam_role_policy.lambda]
+}
+
+# ---------- Scheduled backfill (ADR 0008) ----------
+# Same zip, role and environment as cover_art; only the handler, timeout and log group differ.
+
+resource "aws_cloudwatch_log_group" "scheduled" {
+  name              = "/aws/lambda/${local.scheduled_function_name}"
+  retention_in_days = 14
+}
+
+resource "aws_lambda_function" "scheduled_backfill" {
+  function_name    = local.scheduled_function_name
+  role             = aws_iam_role.lambda.arn
+  runtime          = "python3.12"
+  handler          = "game_tracker.handler.scheduled_backfill"
+  filename         = var.lambda_package
+  source_code_hash = filebase64sha256(var.lambda_package)
+  timeout          = 300
+  memory_size      = 256
+
+  environment {
+    variables = {
+      AIRTABLE_BASE_ID = var.airtable_base_id
+      AIRTABLE_TABLE   = var.airtable_table
+      COVERS_BUCKET    = aws_s3_bucket.covers.bucket
+      COVER_BASE_URL   = "https://${aws_cloudfront_distribution.covers.domain_name}"
+      SSM_PREFIX       = local.ssm_prefix
+      MAX_PER_RUN      = tostring(var.max_per_run)
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.scheduled, aws_iam_role_policy.lambda]
+}
+
+resource "aws_cloudwatch_event_rule" "backfill" {
+  name                = "${local.scheduled_function_name}-schedule"
+  description         = "Fills in missing cover art for new games."
+  schedule_expression = var.backfill_schedule
+  state               = var.backfill_enabled ? "ENABLED" : "DISABLED"
+}
+
+resource "aws_cloudwatch_event_target" "backfill" {
+  rule = aws_cloudwatch_event_rule.backfill.name
+  arn  = aws_lambda_function.scheduled_backfill.arn
+}
+
+resource "aws_lambda_permission" "events_invoke_backfill" {
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.scheduled_backfill.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.backfill.arn
 }

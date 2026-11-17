@@ -81,3 +81,13 @@ def test_backfill_preview_only_looks_up_rawg(monkeypatch, capsys):
     assert "Hades (RAWG)" in out and "media.rawg.io" in out and "no cover found" in out
     assert lam.calls == []
     assert "!= ''" in c.formula  # blank rows are skipped
+
+
+def test_backfill_stops_after_three_consecutive_upstream_errors(monkeypatch, capsys):
+    monkeypatch.setenv("AIRTABLE_BASE_ID", "appABCDEFGHIJKLMN")
+    c = FakeAirtable([{"id": f"rec{i}", "fields": {"Title": f"G{i}"}} for i in range(6)])
+    bad = {"statusCode": 502, "error": "upstream_error"}
+    lam = FakeLambda([bad] * 6)
+    assert cli.backfill([], client=c, lambda_client=lam) == 1
+    assert len(lam.calls) == 3  # rec3..rec5 never attempted
+    assert "3 consecutive upstream errors" in capsys.readouterr().err

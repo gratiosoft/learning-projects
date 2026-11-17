@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from . import airtable_client as at
 from . import schema
+from .backfill import MAX_CONSECUTIVE_ERRORS, run_backfill
 from .config import Settings, get_secret
 from .rawg_client import GameNotFoundError, RawgClient, UpstreamError
 
@@ -97,20 +98,29 @@ def backfill(
                 print(f"{title!r} -> {exc}")
         return 0
     lam = lambda_client or boto3.client("lambda")
-    failures = 0
-    for rec in todo:
+
+    def enrich(rec: dict) -> dict:
         resp = lam.invoke(
             FunctionName=settings.function_name,
             Payload=json.dumps({"record_id": rec["id"]}).encode(),
         )
-        result = json.loads(resp["Payload"].read())
+        return json.loads(resp["Payload"].read())
+
+    def show(rec: dict, result: dict) -> None:
         title = rec["fields"].get(at.F_TITLE, rec["id"])
         if result.get("statusCode") == 200 and "url" in result:
             print(f"ok    {title}")
         else:
-            failures += 1
             print(f"FAIL  {title}: {result.get('error', result)}", file=sys.stderr)
-    return 1 if failures else 0
+
+    out = run_backfill(todo, enrich, on_result=show)
+    if out.stopped_early:
+        print(
+            f"stopped after {MAX_CONSECUTIVE_ERRORS} consecutive upstream errors; "
+            f"{out.remaining} games not attempted. Re-run later.",
+            file=sys.stderr,
+        )
+    return 1 if (out.errors or out.not_found) else 0
 
 
 def setup_base(argv: list[str] | None = None, ensure=schema.ensure_games_table) -> int:

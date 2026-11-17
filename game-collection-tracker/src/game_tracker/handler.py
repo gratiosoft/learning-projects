@@ -10,11 +10,13 @@ Errors are returned (not raised) so the backfill CLI can tell "not found" from a
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass
 
 from . import airtable_client as at
 from .airtable_client import AirtableClient, AirtableError
+from .backfill import run_backfill
 from .config import Settings, get_secret
 from .rawg_client import GameNotFoundError, RawgClient, UpstreamError
 from .s3_uploader import CoverUploader, slugify
@@ -112,3 +114,31 @@ def lambda_handler(event: dict, context=None, deps: Deps | None = None) -> dict:
 
     log.info("cover stored for %s", record_id or title)
     return {"statusCode": 200, "url": url, "cached": False}
+
+
+DEFAULT_MAX_PER_RUN = 10
+MISSING_COVER_FORMULA = f"AND({{{at.F_TITLE}}} != '', {{{at.F_COVER_URL}}} = '')"
+
+
+def scheduled_backfill(event: dict | None = None, context=None, deps: Deps | None = None) -> dict:
+    """EventBridge entry point: add covers to games that have none, a few per run.
+
+    Reuses `lambda_handler` for each record. Never raises for expected failures; returns
+    counts {updated, skipped, not_found, errors, remaining}. Logs counts and record ids only.
+    """
+    d = deps or _build_deps()
+    limit = int(os.environ.get("MAX_PER_RUN", DEFAULT_MAX_PER_RUN))
+    try:
+        todo = list(d.airtable.list_records(formula=MISSING_COVER_FORMULA, fields=[at.F_TITLE]))
+    except AirtableError as exc:
+        log.error("could not list games: %s", exc)
+        return {"statusCode": 502, "error": "upstream_error", "message": str(exc)}
+
+    def enrich(rec: dict) -> dict:
+        return lambda_handler({"record_id": rec["id"]}, deps=d)
+
+    def note(rec: dict, result: dict) -> None:
+        log.info("record %s -> %s", rec["id"], result.get("error") or "ok")
+
+    result = run_backfill(todo, enrich, limit=limit, on_result=note)
+    return {"statusCode": 200, **result.as_dict()}

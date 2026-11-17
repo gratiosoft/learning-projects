@@ -39,3 +39,32 @@ variable "lambda_package" {
   type        = string
   default     = "../build/lambda.zip"
 }
+
+variable "backfill_schedule" {
+  description = "EventBridge schedule for the cover backfill: rate(...) or cron(...)."
+  type        = string
+  default     = "rate(1 day)"
+
+  validation {
+    condition = can(regex("^(rate\\([0-9]+ (minute|minutes|hour|hours|day|days)\\)|cron\\(.+\\))$",
+    var.backfill_schedule))
+    error_message = "backfill_schedule must look like 'rate(1 day)' or 'cron(0 6 * * ? *)'."
+  }
+}
+
+variable "backfill_enabled" {
+  description = "Set to false to switch the scheduled backfill off without destroying it."
+  type        = bool
+  default     = true
+}
+
+variable "max_per_run" {
+  description = "Most games the scheduled backfill processes per run."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.max_per_run >= 1 && var.max_per_run <= 50
+    error_message = "max_per_run must be between 1 and 50."
+  }
+}
