@@ -39,7 +39,7 @@ I own many video games across platforms and lose track of what I own, what I hav
 | A7 | Automation: new records get `Review status` = "Unreviewed". |
 | A8 | Friends can submit via a shared form. |
 
-Items the Airtable MCP tools cannot do are listed in [manual-steps.md](manual-steps.md).
+The table and form are built by hand and through the Airtable REST API. Forms, interfaces, automations and sharing are click-by-click in [manual-steps.md](manual-steps.md).
 
 ### Airtable Web API scripts (Phase 3)
 

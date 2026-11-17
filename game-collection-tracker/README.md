@@ -8,10 +8,13 @@ Docs: [PRD](docs/prd.md) · [Architecture](docs/architecture.md) · [ADRs](docs/
 
 | Part | State |
 |------|-------|
-| Python client, CLI, Lambda handler, tests | done, tests pass offline |
-| Terraform (`infra/`) | written, `fmt` and `validate` pass, **not applied** |
+| Python client, CLI, Lambda handler, tests | done; 52 tests pass offline |
+| Terraform (`infra/`) | **applied** to AWS (profile `giancarlo`, `us-east-1`); 14 resources |
+| Cover-art Lambda | deployed and verified end to end (see [Verification](#verification-results)) |
 | Airtable base and form | table and form exist (built by hand), verified live |
-| Airtable automations, interface | manual, see [manual-steps.md](docs/manual-steps.md) |
+| Airtable automations, interface, sharing | manual, see [manual-steps.md](docs/manual-steps.md) |
+
+Deployed: function `game-tracker-cover-art`, bucket `game-tracker-covers-546135990880` (private), CloudFront `https://d7yqaa992ies3.cloudfront.net`.
 
 ## Setup
 
@@ -26,7 +29,9 @@ cp .env.example .env       # fill in values; .env is gitignored
 uv run setup-base                      # once: creates the Games table (needs schema.bases:write)
 uv run list-games
 uv run add-game --title "Hades" --platform Steam --genre Action --status "Not played" --rating 5
-uv run backfill-covers --dry-run     # then without --dry-run once deployed
+uv run backfill-covers --preview     # RAWG lookup only; no S3, Lambda or Airtable writes
+uv run backfill-covers --dry-run     # list games that need a cover
+uv run backfill-covers               # invoke the Lambda for each (needs AWS credentials)
 ```
 
 ## Test and lint
@@ -39,18 +44,52 @@ make check     # ruff, pytest (offline, all external services mocked), terraform
 
 Prerequisites: AWS credentials (profile or env), Terraform >= 1.6, a RAWG API key, an Airtable token.
 
-1. `cp infra/terraform.tfvars.example infra/terraform.tfvars` and set `airtable_base_id` (and `aws_profile`, `region`).
+1. `cp infra/terraform.tfvars.example infra/terraform.tfvars` and set `airtable_base_id` (and `aws_profile`, `region`). `variables.tf` rejects a malformed base ID at plan time.
 2. `make plan` builds the zip and shows the plan. Review it.
-3. `make deploy` runs `terraform apply` (asks for confirmation). First apply takes a few minutes because of CloudFront.
-4. Store the real secrets (Terraform only creates placeholders):
+3. `make deploy` runs `terraform apply` (asks for confirmation). The first apply takes a few minutes because of CloudFront.
+4. Store the real secrets. Terraform only creates `CHANGE_ME` placeholders, so real values never enter state. Read them from `.env` into the shell instead of typing them, so they stay out of shell history:
    ```bash
-   aws ssm put-parameter --name /game-tracker/RAWG_API_KEY --type SecureString --overwrite --value "..."
-   aws ssm put-parameter --name /game-tracker/AIRTABLE_TOKEN --type SecureString --overwrite --value "..."
+   set -a; . ./.env; set +a
+   aws ssm put-parameter --name /game-tracker/RAWG_API_KEY --type SecureString --overwrite --value "$RAWG_API_KEY"
+   aws ssm put-parameter --name /game-tracker/AIRTABLE_TOKEN --type SecureString --overwrite --value "$AIRTABLE_TOKEN"
+   unset RAWG_API_KEY AIRTABLE_TOKEN
    ```
-5. Smoke test: `aws lambda invoke --function-name game-tracker-cover-art --payload '{"title":"Hades"}' --cli-binary-format raw-in-base64-out out.json`
+5. Smoke test: `aws lambda invoke --function-name game-tracker-cover-art --payload '{"record_id":"rec..."}' --cli-binary-format raw-in-base64-out out.json`
 6. Backfill: `uv run backfill-covers`.
 
-Cost is near zero within the free tiers. `terraform destroy` removes everything (empty the bucket first).
+If RAWG is down the Lambda returns `502 upstream_error`; nothing is written. Re-run later.
+
+### Verification results
+
+Run against the deployed stack (profile `giancarlo`, `us-east-1`):
+
+| Check | Result |
+|-------|--------|
+| Lambda reads SecureString with the default `aws/ssm` key | works, no IAM change needed |
+| Invoke for one record | 200, `cached: false`, object at `covers/<record_id>.jpg` |
+| S3 object | `image/jpeg`, AES256 encrypted |
+| CloudFront URL | 200 `image/jpeg`, full size; `http://` gets a 301 to https |
+| Bucket URL directly | 403 (bucket is private) |
+| Airtable | `Cover art URL` and `Cover art attachment` both populated; Airtable fetched the file from our CloudFront URL |
+| Re-invoke | `cached: true`, S3 object untouched |
+| Invoke with `force` | re-fetched and overwritten, attachment rewritten |
+| CloudWatch logs | no errors, no RAWG key or Airtable token present |
+| Backfill, 6 games with a Title and no cover | 5 updated; 1 `game_not_found` (a deliberately bad title); a second run listed only the unmatched one |
+
+Not verified: gallery rendering in an Airtable interface (interfaces are built by hand), and `terraform destroy`.
+
+## Costs and teardown
+
+Everything fits the free tiers for a personal collection: Lambda, S3, CloudFront (1 TB/month), SSM standard parameters and 14-day log retention. Airtable Free limits apply separately.
+
+To remove everything:
+
+```bash
+aws s3 rm s3://game-tracker-covers-<account-id>/ --recursive   # the bucket must be empty first
+terraform -chdir=infra destroy
+```
+
+The bucket deliberately does **not** set `force_destroy`, so `destroy` refuses to delete cover art by accident. CloudFront takes a few minutes to disable and delete. Airtable keeps its own copy of each attachment (see below), so deleting S3 objects does not clear it.
 
 ## Airtable
 
