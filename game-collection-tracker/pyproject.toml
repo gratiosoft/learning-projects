@@ -1,0 +1,42 @@
+[project]
+name = "game-tracker"
+version = "0.1.0"
+description = "Game collection tracker: Airtable + AWS Lambda/S3 cover art"
+readme = "README.md"
+authors = [
+    { name = "GiancarloJSalves", email = "gjsavoryalves@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.43.108",
+    "python-dotenv>=1.2.4",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+list-games = "game_tracker.cli:list_games"
+add-game = "game_tracker.cli:add_game"
+backfill-covers = "game_tracker.cli:backfill"
+setup-base = "game_tracker.cli:setup_base"
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "moto[lambda,s3,ssm]>=5.2.3",
+    "pytest>=9.1.1",
+    "responses>=0.26.3",
+    "ruff>=0.16.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
